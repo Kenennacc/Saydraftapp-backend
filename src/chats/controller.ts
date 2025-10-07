@@ -78,14 +78,6 @@ export default class ChatsController {
     const title = '(Untitled)';
     const chat = await this.chatsService.createChat(title, user.id);
     await this.chatsService.addChatState(chat.id, ChatState.MIC);
-    await this.chatsService.addMessage(
-      {
-        text: "Hi there! I'm SayDraft AI, your contract drafting assistant. Share the type of agreement you need and the important details, and I'll handle the rest. Ready to begin?",
-        type: MessageType.TEXT,
-      },
-      chat.id,
-    );
-
     return { id: chat.id };
   }
 

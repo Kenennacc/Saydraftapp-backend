@@ -15,9 +15,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Queue } from 'bullmq';
 import { addHours, differenceInMinutes } from 'date-fns';
 import type { Request, Response } from 'express';
+import {
+  ContractJobName,
+  IProcessPendingInvitations,
+} from 'src/chats/processor';
 import { User } from 'src/decorators';
 import UserAgent, { type Device } from 'src/decorators/UserAgent';
 import { TokenContext, TokenType } from 'src/entities';
@@ -48,6 +53,7 @@ export default class AuthController {
   constructor(
     private readonly authService: AuthService,
     @InjectQueue('mail') private mailQueue: Queue,
+    @InjectQueue('contract') private contractQueue: Queue,
     private mailService: MailService,
     private configService: ConfigService,
   ) {}
@@ -62,6 +68,11 @@ export default class AuthController {
       );
 
     const user = await this.authService.register(dto);
+
+    await this.contractQueue.add(ContractJobName.PROCESS_PENDING_INVITATIONS, {
+      email: dto.email,
+    } as IProcessPendingInvitations);
+
     const token = await this.authService.createToken(
       user.id,
       {
@@ -70,6 +81,8 @@ export default class AuthController {
       },
       addHours(new Date(), 24),
     );
+
+    console.log('Token', token);
 
     const url = `${this.configService.get('CLIENT_URL')}/auth/verification?token=${token}`;
 
@@ -85,6 +98,11 @@ export default class AuthController {
   }
 
   @Post('verify')
+  @ApiOperation({ summary: 'Verify user email with token' })
+  @ApiBody({ type: VerifyDTO })
+  @ApiResponse({ status: 200, description: 'Email successfully verified' })
+  @ApiResponse({ status: 404, description: 'Invalid or expired token' })
+  @ApiResponse({ status: 422, description: 'Validation failed' })
   @Transactional({ isolationLevel: IsolationLevel.SERIALIZABLE })
   async verify(@Body() dto: VerifyDTO) {
     const token = await this.authService.getToken(dto.token, {
@@ -97,28 +115,38 @@ export default class AuthController {
         'Invalid or expired token. For security reasons, please restart the process or request a new token',
       );
 
-    if (token.user.verifiedAt) {
+    if (token.user?.verifiedAt) {
       throw new ConflictException(
         'This email address has already been verified. You can now log in to your account.',
       );
     }
 
-    await this.authService.verifyUser(token.user.id);
-    await this.authService.markTokenAsUsed(token.id);
-    const url = `${this.configService.get('CLIENT_URL')}/auth/login`;
-    const template = await this.mailService.buildTemplate(baseTemplate, {
-      ...emailVerifiedTemplate,
-      url,
-    });
-    await this.mailQueue.add(JobName.USER_VERIFIED, {
-      to: token.user.email,
-      subject: emailVerifiedTemplate.subject,
-      body: template,
-    } satisfies IMailJobData);
+    if (token.user) {
+      await this.authService.verifyUser(token.user.id);
+      await this.authService.markTokenAsUsed(token.id);
+      const url = `${this.configService.get('CLIENT_URL')}/auth/login`;
+      const template = await this.mailService.buildTemplate(baseTemplate, {
+        ...emailVerifiedTemplate,
+        url,
+      });
+      await this.mailQueue.add(JobName.USER_VERIFIED, {
+        to: token.user.email,
+        subject: emailVerifiedTemplate.subject,
+        body: template,
+      } satisfies IMailJobData);
+    }
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
+  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiBody({ type: LoginDTO })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully logged in. Session cookie set.',
+  })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 422, description: 'Validation failed' })
   async login(
     @Body() dto: LoginDTO,
     @Headers('x-timezone') timezone: string,
@@ -155,7 +183,7 @@ export default class AuthController {
 
     const latestToken = await this.authService.getLatestToken(user.id);
 
-    let waitPeriod;
+    let waitPeriod: number;
 
     if (
       latestToken &&
@@ -197,7 +225,7 @@ export default class AuthController {
       type: TokenType.URL,
     });
 
-    if (!token)
+    if (!token || !token.user)
       throw new UnauthorizedException(
         'Invalid or expired token. For security reasons, please restart the process or request a new token',
       );

@@ -36,3 +36,11 @@ export const emailVerifiedTemplate = {
   buttonText: 'Go to SayDraft',
   postText: `If you did not create this account or believe this verification was a mistake, please contact our support team immediately.`,
 } satisfies Omit<MessageTemplateProperties, 'url'>;
+
+export const contractInvitationTemplate = {
+  subject: 'SayDraft – Contract Invitation',
+  title: 'You have been invited to review a contract',
+  description: `You have been invited to review and acknowledge a contract generated through SayDraft. Click the button below to view the contract details.`,
+  buttonText: 'Review Contract',
+  postText: `This invitation was sent to you by someone using <span class="t24" style="margin:0;Margin:0;font-weight:700;mso-line-height-rule:exactly;">SayDraft</span>. If you did not expect this invitation, please contact the sender directly.`,
+} satisfies Omit<MessageTemplateProperties, 'url'>;

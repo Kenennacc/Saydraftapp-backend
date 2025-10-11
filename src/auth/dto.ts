@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
@@ -8,7 +9,13 @@ import {
 } from 'class-validator';
 
 export class RegisterDTO {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  @ApiProperty({
+    description: 'User first name',
+    example: 'John',
+    minLength: 2,
+    maxLength: 50,
+  })
+
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsNotEmpty({ message: 'First name is required.' })
   @IsString({ message: 'First name must be text.' })
@@ -21,7 +28,13 @@ export class RegisterDTO {
   })
   firstname: string;
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  @ApiProperty({
+    description: 'User last name',
+    example: 'Doe',
+    minLength: 2,
+    maxLength: 50,
+  })
+
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsNotEmpty({ message: 'Last name is required.' })
   @IsString({ message: 'Last name must be text.' })
@@ -34,8 +47,14 @@ export class RegisterDTO {
   })
   lastname: string;
 
+  @ApiProperty({
+    description: 'User email address',
+    example: 'john.doe@example.com',
+    minLength: 5,
+    maxLength: 254,
+  })
   @Transform(({ value }) =>
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
   @IsNotEmpty({ message: 'Email address is required.' })
@@ -45,6 +64,12 @@ export class RegisterDTO {
   })
   email: string;
 
+  @ApiProperty({
+    description: 'User password (min 8 chars, must include uppercase, lowercase, number, and special char)',
+    example: 'SecureP@ss123',
+    minLength: 8,
+    maxLength: 128,
+  })
   @IsNotEmpty({ message: 'Password is required.' })
   @IsString({ message: 'Password must be text.' })
   @Length(8, 128, {
@@ -60,8 +85,12 @@ export class RegisterDTO {
 }
 
 export class LoginDTO {
+  @ApiProperty({
+    description: 'User email address',
+    example: 'john.doe@example.com',
+  })
   @Transform(({ value }) =>
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
   @IsNotEmpty({ message: 'Email address is required.' })
@@ -71,6 +100,10 @@ export class LoginDTO {
   })
   email: string;
 
+  @ApiProperty({
+    description: 'User password',
+    example: 'SecureP@ss123',
+  })
   @IsNotEmpty({ message: 'Password is required.' })
   @IsString({ message: 'Password must be text.' })
   @Length(8, 128, {
@@ -86,8 +119,12 @@ export class LoginDTO {
 }
 
 export class ForgotPasswordDTO {
+  @ApiProperty({
+    description: 'Email address to send password reset link',
+    example: 'john.doe@example.com',
+  })
   @Transform(({ value }) =>
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
   @IsNotEmpty({ message: 'Email address is required.' })
@@ -99,7 +136,13 @@ export class ForgotPasswordDTO {
 }
 
 export class ResetPasswordDTO {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  @ApiProperty({
+    description: 'Password reset token received via email',
+    example: 'a1b2c3d4e5f6...',
+    minLength: 128,
+    maxLength: 128,
+  })
+
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsNotEmpty({ message: 'Token is required.' })
   @IsString({ message: 'Token must be a string.' })
@@ -111,6 +154,10 @@ export class ResetPasswordDTO {
   })
   token: string;
 
+  @ApiProperty({
+    description: 'New password',
+    example: 'NewSecureP@ss123',
+  })
   @IsNotEmpty({ message: 'Password is required.' })
   @IsString({ message: 'Password must be text.' })
   @Length(8, 128, {
@@ -123,11 +170,23 @@ export class ResetPasswordDTO {
   })
   @Matches(/^\S+$/, { message: 'Password must not contain spaces.' })
   password: string;
+
+  @ApiProperty({
+    description: 'Whether to invalidate all existing sessions',
+    example: true,
+    required: false,
+  })
   invalidateSession: boolean;
 }
 
 export class VerifyDTO {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  @ApiProperty({
+    description: 'Email verification token received via email',
+    example: 'a1b2c3d4e5f6...',
+    minLength: 128,
+    maxLength: 128,
+  })
+
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsNotEmpty({ message: 'Token is required.' })
   @IsString({ message: 'Token must be a string.' })

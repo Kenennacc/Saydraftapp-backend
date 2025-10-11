@@ -5,7 +5,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-//convert user's local timezone to UTC before populating
+
 export default abstract class Entity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -1,5 +1,5 @@
-const baseTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
+const baseTemplate = `<!DOCTYPE html PUBLIC "-
+<html xmlns="http:
    <head>
       <title></title>
       <meta charset="UTF-8" />
@@ -115,7 +115,7 @@ const baseTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional/
          }
       </style>
       <!--[if !mso]>-->
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&amp;display=swap" rel="stylesheet" type="text/css" />
+      <link href="https:
       <!--<![endif]-->
       <!--[if mso]>
       <xml>
@@ -158,7 +158,7 @@ const baseTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional/
                                                             <td width="60" class="t3" style="width:60px;">
                                                                <table class="t2" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;">
                                                                   <tr>
-                                                                     <td class="t1"><a href="#" style="font-size:0px;" target="_blank"><img class="t0" style="display:block;border:0;height:auto;width:100%;Margin:0;max-width:100%;" width="60" height="60" alt="" src="https://bcc022e1-4a2d-43f7-8206-430e642da986.b-cdn.net/e/bbade823-a19b-44de-bbc8-c3ce265ef0d5/341f3cca-6c84-4876-b6a1-917f06efe37c.png"/></a></td>
+                                                                     <td class="t1"><a href="#" style="font-size:0px;" target="_blank"><img class="t0" style="display:block;border:0;height:auto;width:100%;Margin:0;max-width:100%;" width="60" height="60" alt="" src="https:
                                                                   </tr>
                                                                </table>
                                                             </td>

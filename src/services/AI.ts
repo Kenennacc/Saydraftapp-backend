@@ -15,14 +15,24 @@ const chatResponseSchema = z.object({
     description: 'The title of the contract',
   }),
   response: z.string(),
-  requires: z.enum([ChatState.MIC, ChatState.TEXT]),
+  requires: z.enum([
+    ChatState.MIC,
+    ChatState.TEXT,
+    ChatState.EMAIL,
+    ChatState.NONE,
+  ]),
   texts: z.array(z.string()),
   status: z.string({
     description: "The summary of the user's response",
   }),
   shouldInvite: z.boolean(),
   contract: z.string().nullable(),
+  email: z.string().nullable(),
+  agreed: z.boolean().nullable(),
+  summary: z.string().nullable(),
 });
+
+export type ChatResponse = z.infer<typeof chatResponseSchema>;
 
 @Injectable()
 export default class AIService {

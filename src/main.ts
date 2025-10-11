@@ -6,6 +6,7 @@ import {
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -48,6 +49,43 @@ async function bootstrap() {
       },
     }),
   );
+
+  const config = new DocumentBuilder()
+    .setTitle('SayDraft API')
+    .setDescription(
+      'API documentation for SayDraft - AI-powered contract drafting platform',
+    )
+    .setVersion('1.0')
+    .addTag('auth', 'Authentication and user management endpoints')
+    .addTag('chats', 'Chat and contract management endpoints')
+    .addTag(
+      'contract-review',
+      'Public contract review endpoints (no auth required)',
+    )
+    .addCookieAuth('session', {
+      type: 'apiKey',
+      in: 'cookie',
+      name: 'session',
+      description: 'Session cookie for authenticated requests',
+    })
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'Token',
+        description: 'Contract review invitation token',
+      },
+      'invitation-token',
+    )
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document, {
+    customSiteTitle: 'SayDraft API Docs',
+    customfavIcon: '/favicon.ico',
+    customCss: '.swagger-ui .topbar { display: none }',
+  });
+
   await app.listen(+(process.env.PORT ?? 3000));
 }
 void bootstrap();

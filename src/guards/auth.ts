@@ -25,8 +25,8 @@ export default class AuthGuard implements CanActivate {
 
     if (!cookieValue) throw new UnauthorizedException('No session provided');
 
-    // const userAgent = parseUserAgent(request.headers['user-agent'] || '');
-    // const hash = hashUserAgent(JSON.stringify(userAgent));
+
+
     const session = await this.authService.getSession(cookieValue);
 
     if (!session) throw new UnauthorizedException('Invalid session');

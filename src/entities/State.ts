@@ -5,6 +5,8 @@ import BaseEntity from './Entity';
 export enum ChatState {
   MIC = 'MIC',
   TEXT = 'TEXT',
+  EMAIL = 'EMAIL',
+  NONE = 'NONE',
 }
 
 @Entity({ name: 'states' })

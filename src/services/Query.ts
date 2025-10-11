@@ -1,4 +1,5 @@
 import {
+  FindOptionsOrder,
   FindOptionsRelations,
   FindOptionsSelect,
   FindOptionsWhere,
@@ -11,6 +12,7 @@ export type QueryFilters<T> =
       select: FindOptionsSelect<T>;
       relations: FindOptionsRelations<T>;
       where: FindOptionsWhere<T> | FindOptionsWhere<T>[];
+      order: FindOptionsOrder<T>;
     }>
   | undefined;
 

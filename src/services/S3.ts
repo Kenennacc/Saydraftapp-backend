@@ -33,6 +33,6 @@ export class S3Service {
 
     await upload.done();
 
-    return `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    return `https://${bucket}.s3.amazonaws.com/${key}`;
   }
 }

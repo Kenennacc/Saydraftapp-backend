@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import markdownDocx, { Packer } from 'markdown-docx';
 import { Chat, Message } from 'src/entities';
+import { ChatContext } from 'src/entities/Chat';
 import File, { FileType } from 'src/entities/File';
 import { MessageType } from 'src/entities/Message';
 import Prompt from 'src/entities/Prompts';
@@ -28,12 +30,15 @@ export default class ChatsService extends QueryService {
     super();
   }
 
-  createChat(title: string, userId: string) {
+  createChat(title: string, userId: string | null, context?: ChatContext) {
     const instance = this.chatRepository.create({
       title,
-      user: {
-        id: userId,
-      },
+      context,
+      user: userId
+        ? {
+            id: userId,
+          }
+        : undefined,
     });
     return this.chatRepository.save(instance);
   }
@@ -118,7 +123,7 @@ export default class ChatsService extends QueryService {
     return this.messageRepository.find({
       select: filters?.select,
       where: filters?.where,
-      order: {
+      order: filters?.order || {
         createdAt: 'asc',
         prompts: {
           createdAt: 'asc',
@@ -261,5 +266,15 @@ export default class ChatsService extends QueryService {
         },
       },
     });
+  }
+
+  async createContract(contract: string) {
+    const docx = await markdownDocx(contract);
+    const buffer = await Packer.toBuffer(docx);
+    return {
+      buffer,
+      mimetype:
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    };
   }
 }

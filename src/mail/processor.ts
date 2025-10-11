@@ -7,6 +7,7 @@ export enum JobName {
   USER_VERIFIED = 'user_verified',
   FORGOT_PASSWORD = 'forgot_password',
   PASSWORD_CHANGED = 'password_changed',
+  CONTRACT_INVITATION = 'contract_invitation',
 }
 
 export type IMailJobData = {
@@ -25,7 +26,6 @@ export default class MailProcessor extends WorkerHost {
     console.log('here');
     const { to, subject, body } = job.data;
     const response = await this.mailService.send(to, subject, body);
-    console.log(response);
     if (!response.success && response.error instanceof Error)
       throw response.error;
   }

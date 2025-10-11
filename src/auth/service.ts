@@ -115,6 +115,7 @@ export default class AuthService extends QueryService {
     );
   }
 
+
   async register(dto: RegisterDTO) {
     const instance = this.userRepository.create({
       email: dto.email,
@@ -123,7 +124,9 @@ export default class AuthService extends QueryService {
       password: await this.hash(dto.password),
     });
 
-    return this.userRepository.save(instance);
+    const user = await this.userRepository.save(instance);
+
+    return user;
   }
 
   async verifyUser(userId: string) {

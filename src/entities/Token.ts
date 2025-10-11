@@ -5,6 +5,7 @@ import User from './User';
 export enum TokenContext {
   VERIFICATION = 'verification',
   PASSWORD_RESET = 'password_reset',
+  CONTRACT_REVIEW = 'contract_review',
 }
 
 export enum TokenType {
@@ -18,8 +19,8 @@ export default class Token extends BaseEntity {
   @Index()
   value: string;
 
-  @ManyToOne(() => User)
-  user: User;
+  @ManyToOne(() => User, { nullable: true })
+  user: User | null;
 
   @Column({ type: 'varchar' })
   context: TokenContext;

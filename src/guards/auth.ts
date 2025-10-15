@@ -9,6 +9,7 @@ import { isAfter } from 'date-fns';
 import { Request } from 'express';
 import AuthService from 'src/auth/service';
 import RequiresVerification from 'src/decorators/RequiresVerification';
+import { User as UserType } from 'src/types';
 
 @Injectable()
 export default class AuthGuard implements CanActivate {
@@ -17,7 +18,7 @@ export default class AuthGuard implements CanActivate {
     private reflector: Reflector,
   ) {}
   async canActivate(context: ExecutionContext) {
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = context.switchToHttp().getRequest<Request & { user: UserType }>();
 
     const cookieValue = request.signedCookies?.meta_gandalf as
       | string
@@ -53,6 +54,7 @@ export default class AuthGuard implements CanActivate {
       email: user.email,
       timezone: session.timezone,
       verifiedAt: user.verifiedAt,
+      isAdmin: user.isAdmin,
       session: value,
     };
 

@@ -8,6 +8,7 @@ import {
   addTransactionalDataSource,
   getDataSourceByName,
 } from 'typeorm-transactional';
+import { AdminModule } from './admin/module';
 import { AuthModule } from './auth/module';
 import { ChatsModule } from './chats/module';
 
@@ -63,6 +64,7 @@ import { ChatsModule } from './chats/module';
         };
       },
     }),
+    AdminModule,
     AuthModule,
     ChatsModule,
   ],

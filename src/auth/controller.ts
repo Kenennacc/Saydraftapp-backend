@@ -313,7 +313,7 @@ export default class AuthController {
   @Get('user')
   user(@User() user: UserType) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { session, verifiedAt, ...others } = user;
-    return { isVerified: !!verifiedAt, ...others };
+    const { session, verifiedAt, isAdmin, ...others } = user;
+    return { isVerified: !!verifiedAt, isAdmin, ...others };
   }
 }

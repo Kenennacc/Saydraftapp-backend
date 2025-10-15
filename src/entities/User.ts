@@ -20,6 +20,12 @@ export default class User extends BaseEntity {
   @Column({ name: 'verified_at', nullable: true })
   verifiedAt?: Date;
 
+  @Column({ name: 'banned_at', nullable: true })
+  bannedAt?: Date;
+
+  @Column({ name: 'is_admin', default: false })
+  isAdmin: boolean;
+
   @OneToMany(() => Session, (session) => session.user)
   sessions: Session[];
 }

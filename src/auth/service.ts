@@ -172,6 +172,7 @@ export default class AuthService extends QueryService {
           id: true,
           firstname: true,
           lastname: true,
+          isAdmin: true,
           email: true,
           verifiedAt: true,
         },
@@ -205,6 +206,13 @@ export default class AuthService extends QueryService {
     return this.sessionRepository.update(
       { user: { id: userId }, value: session },
       { lastUsedAt: new Date() },
+    );
+  }
+
+  async promoteToAdmin(userId: string) {
+    return this.userRepository.update(
+      { id: userId },
+      { isAdmin: true },
     );
   }
 }

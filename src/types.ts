@@ -6,4 +6,5 @@ export type User = {
   session: string;
   timezone: string;
   verifiedAt?: Date;
+  isAdmin: boolean;
 };

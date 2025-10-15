@@ -15,6 +15,7 @@ import {
   StorageDriver,
 } from 'typeorm-transactional';
 import { AppModule } from './module';
+import AuthService from './auth/service';
 
 async function bootstrap() {
   initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
@@ -56,6 +57,7 @@ async function bootstrap() {
       'API documentation for SayDraft - AI-powered contract drafting platform',
     )
     .setVersion('1.0')
+    .addTag('admin', 'Admin user management endpoints')
     .addTag('auth', 'Authentication and user management endpoints')
     .addTag('chats', 'Chat and contract management endpoints')
     .addTag(
@@ -86,6 +88,45 @@ async function bootstrap() {
     customCss: '.swagger-ui .topbar { display: none }',
   });
 
+  await seedAdminUser(app, configService);
+
   await app.listen(+(process.env.PORT ?? 3000));
 }
+
+async function seedAdminUser(app: NestExpressApplication, configService: ConfigService) {
+  try {
+    const authService = app.get(AuthService);
+    
+    const adminEmail = configService.get('ADMIN_EMAIL') || 'kenennacc@gmail.com';
+    const adminPassword = configService.get('ADMIN_PASSWORD') || 'AdminPass123!';
+    const adminFirstname = configService.get('ADMIN_FIRSTNAME') || 'Admin';
+    const adminLastname = configService.get('ADMIN_LASTNAME') || 'User';
+
+    const existingUser = await authService.getUserByEmail(adminEmail);
+    
+    if (existingUser) {
+      console.log(`✅ Admin user already exists: ${adminEmail}`);
+      return;
+    }
+
+    const user = await authService.register({
+      email: adminEmail,
+      firstname: adminFirstname,
+      lastname: adminLastname,
+      password: adminPassword,
+    });
+
+    await authService.verifyUser(user.id);
+    await authService.promoteToAdmin(user.id);
+
+    console.log(`✅ Admin user created successfully:`);
+    console.log(`   Email: ${adminEmail}`);
+    console.log(`   Password: ${adminPassword}`);
+    console.log(`   Name: ${adminFirstname} ${adminLastname}`);
+    console.log(`   Status: Verified & Admin`);
+  } catch (error) {
+    console.error('❌ Error creating admin user:', error.message);
+  }
+}
+
 void bootstrap();

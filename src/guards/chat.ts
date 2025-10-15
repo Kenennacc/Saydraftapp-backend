@@ -8,12 +8,13 @@ import {
 import { isUUID } from 'class-validator';
 import { Request } from 'express';
 import ChatsService from 'src/chats/service';
+import { User as UserType } from 'src/types';
 
 @Injectable()
 export default class Chat implements CanActivate {
   constructor(private chatService: ChatsService) {}
   async canActivate(context: ExecutionContext) {
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = context.switchToHttp().getRequest<Request & { user: UserType }>();
     const chatId = request.params?.id;
 
     if (!chatId) return true;

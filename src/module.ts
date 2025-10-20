@@ -11,6 +11,7 @@ import {
 import { AdminModule } from './admin/module';
 import { AuthModule } from './auth/module';
 import { ChatsModule } from './chats/module';
+import { SubscriptionModule } from './subscription/module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { ChatsModule } from './chats/module';
     AdminModule,
     AuthModule,
     ChatsModule,
+    SubscriptionModule,
   ],
   exports: [],
 })

@@ -55,9 +55,8 @@ export default abstract class QueryService {
     value: T[keyof T],
     filters?: QueryFilters<T>,
   ) {
+    // TypeORM's exists() only supports 'where' option, not 'select' or 'relations'
     return repository.exists({
-      select: filters?.select,
-      relations: filters?.relations,
       where: {
         [key]: value,
         ...filters?.where,

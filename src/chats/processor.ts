@@ -105,7 +105,7 @@ export default class ContractProcessor extends WorkerHost {
       const response = await this.aiService.chat(ChatContext.OFFEREE, [
         {
           role: 'user',
-          content: `[TEXT] ${contractText}`,
+          content: `[CONTRACT]\n${contractText}`,
         },
       ]);
       const parsed = response?.output_parsed;

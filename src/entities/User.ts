@@ -1,6 +1,8 @@
 import { Column, Entity, Index, OneToMany } from 'typeorm';
 import BaseEntity from './Entity';
 import Session from './Session';
+import Subscription from './Subscription';
+import Usage from './Usage';
 
 @Entity({ name: 'users' })
 export default class User extends BaseEntity {
@@ -26,6 +28,15 @@ export default class User extends BaseEntity {
   @Column({ name: 'is_admin', default: false })
   isAdmin: boolean;
 
+  @Column({ name: 'stripe_customer_id', nullable: true })
+  stripeCustomerId?: string;
+
   @OneToMany(() => Session, (session) => session.user)
   sessions: Session[];
+
+  @OneToMany(() => Subscription, (subscription) => subscription.user)
+  subscriptions: Subscription[];
+
+  @OneToMany(() => Usage, (usage) => usage.user)
+  usage: Usage[];
 }

@@ -68,8 +68,15 @@ export default class ChatsService extends QueryService {
     return chats;
   }
 
-  chatExists(id: string, filters?: QueryFilters<Chat>) {
-    return this.existsBy(this.chatRepository, 'id', id, filters);
+  async chatExists(id: string, filters?: QueryFilters<Chat>) {
+    // Use count() instead of exists() for better reliability with nested relations
+    const count = await this.chatRepository.count({
+      where: {
+        id,
+        ...filters?.where,
+      } as any,
+    });
+    return count > 0;
   }
 
   countChats(userId: string) {

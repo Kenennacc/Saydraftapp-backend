@@ -37,6 +37,7 @@ import {
   passwordResetTemplate,
   verificationTemplate,
 } from 'src/misc/mailTemplate';
+import { SubscriptionService } from 'src/services/Subscription';
 import type { User as UserType } from 'src/types';
 import { IsolationLevel, Transactional } from 'typeorm-transactional';
 import {
@@ -56,6 +57,7 @@ export default class AuthController {
     @InjectQueue('contract') private contractQueue: Queue,
     private mailService: MailService,
     private configService: ConfigService,
+    private subscriptionService: SubscriptionService,
   ) {}
 
   @Post('register')
@@ -68,6 +70,15 @@ export default class AuthController {
       );
 
     const user = await this.authService.register(dto);
+
+    // Create free subscription for new user
+    try {
+      await this.subscriptionService.createFreeSubscription(user.id);
+      console.log('✅ Free subscription created for user:', user.email);
+    } catch (error) {
+      console.error('❌ Error creating free subscription:', error);
+      // Don't fail registration if subscription creation fails
+    }
 
     await this.contractQueue.add(ContractJobName.PROCESS_PENDING_INVITATIONS, {
       email: dto.email,

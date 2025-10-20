@@ -17,23 +17,49 @@ export default class Chat implements CanActivate {
     const request = context.switchToHttp().getRequest<Request & { user: UserType }>();
     const chatId = request.params?.id;
 
-    if (!chatId) return true;
-    if (!isUUID(chatId))
+    console.log('=== CHAT GUARD DEBUG ===');
+    console.log('Chat ID:', chatId);
+    console.log('User ID:', request.user?.id);
+
+    
+    if (!isUUID(chatId)) {
+      console.log('Invalid UUID format:', chatId);
       throw new UnprocessableEntityException('Invalid chat id format');
+    }
 
     const user = request.user;
-    const chatExists = await this.chatService.chatExists(chatId, {
+
+    // First check if chat exists at all (for debugging)
+    const chatExistsAtAll = await this.chatService.chatExists(chatId);
+    console.log('Chat exists in database:', chatExistsAtAll);
+
+    if (!chatExistsAtAll) {
+      console.log('Chat does not exist in database at all');
+      throw new NotFoundException('Chat not found');
+    }
+
+    // Now check if it belongs to this user
+    const chatBelongsToUser = await this.chatService.chatExists(chatId, {
       where: {
         user: {
           id: user.id,
         },
       },
-      relations: {
-        user: true,
-      },
     });
 
-    if (!chatExists) throw new NotFoundException('Chat not found');
+    console.log('Chat belongs to user (DB query):', chatBelongsToUser);
+    
+    if (!chatBelongsToUser) {
+      console.log('Chat exists but does not belong to this user');
+      // Let's get the actual chat to see what user it belongs to
+      const actualChat = await this.chatService.getChat(chatId, { relations: { user: true } });
+      console.log('Actual chat user ID:', actualChat?.user?.id);
+      console.log('Requested by user ID:', user.id);
+      throw new NotFoundException('Chat not found');
+    }
+    
+    console.log('Chat guard passed');
+    console.log('=== END CHAT GUARD DEBUG ===');
     return true;
   }
 }

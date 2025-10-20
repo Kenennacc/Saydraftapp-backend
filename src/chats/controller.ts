@@ -38,13 +38,14 @@ import { FileType } from 'src/entities/File';
 import Message, { MessageType } from 'src/entities/Message';
 import PendingInvitation from 'src/entities/PendingInvitation';
 import { ChatState } from 'src/entities/State';
-import { Auth, Chat } from 'src/guards';
+import { Auth, Chat, Subscription } from 'src/guards';
 import { IMailJobData, JobName } from 'src/mail/processor';
 import MailService from 'src/mail/service';
 import baseTemplate from 'src/mail/template';
 import { contractInvitationTemplate } from 'src/misc/mailTemplate';
 import AIService from 'src/services/AI';
 import { S3Service } from 'src/services/S3';
+import { SubscriptionService } from 'src/services/Subscription';
 import type { User as UserType } from 'src/types';
 import { IsNull, Repository } from 'typeorm';
 import { IsolationLevel, Transactional } from 'typeorm-transactional';
@@ -64,6 +65,7 @@ export default class ChatsController {
     private authService: AuthService,
     private configService: ConfigService,
     private s3Service: S3Service,
+    private subscriptionService: SubscriptionService,
     @InjectQueue('mail') private mailQueue: Queue,
     @InjectQueue('contract') private contractQueue: Queue,
     private mailService: MailService,
@@ -75,8 +77,17 @@ export default class ChatsController {
   @ApiOperation({ summary: 'Get all chats for authenticated user' })
   @ApiResponse({ status: 200, description: 'List of user chats' })
   @ApiResponse({ status: 401, description: 'Not authenticated' })
-  getChats(@User() user: UserType) {
-    return this.chatsService.getChats(user.id);
+  async getChats(@User() user: UserType) {
+    console.log('=== GET CHATS DEBUG ===');
+    console.log('Getting chats for user:', user.id);
+    
+    const chats = await this.chatsService.getChats(user.id);
+    
+    console.log('Found chats:', chats.length);
+    console.log('Chat IDs:', chats.map(c => c.id));
+    console.log('=== END GET CHATS DEBUG ===');
+    
+    return chats;
   }
 
   @Get(':id')
@@ -108,13 +119,51 @@ export default class ChatsController {
   }
 
   @Post()
+  @UseGuards(Subscription)
   @Transactional({ isolationLevel: IsolationLevel.SERIALIZABLE })
   async createChat(@User() user: UserType) {
-    const title = '(Untitled)';
-    const chat = await this.chatsService.createChat(title, user.id);
-    await this.chatsService.addChatState(chat.id, ChatState.MIC);
+    try {
+      console.log('=== CREATE CHAT DEBUG ===');
+      console.log('User ID:', user.id);
+      console.log('User email:', user.email);
+      console.log('User isAdmin:', user.isAdmin);
+      
+      const title = '(Untitled)';
+      console.log('Creating chat with title:', title);
+      
+      const chat = await this.chatsService.createChat(title, user.id);
+      
+      if (!chat) {
+        console.error('Chat creation returned null/undefined');
+        throw new Error('Failed to create chat');
+      }
+      
+      console.log('Chat created successfully:', {
+        chatId: chat.id,
+        title: chat.title,
+        userId: user.id
+      });
+      
+      console.log('Adding chat state...');
+      await this.chatsService.addChatState(chat.id, ChatState.MIC);
+      console.log('Chat state added: MIC');
+      
+      console.log('Incrementing usage...');
+      await this.subscriptionService.incrementChatUsage(user.id);
+      console.log('Usage incremented successfully');
+      
+      console.log('Returning chat ID:', chat.id);
+      console.log('=== END CREATE CHAT DEBUG ===');
 
-    return { id: chat.id };
+      return { id: chat.id };
+    } catch (error) {
+      console.error('=== CREATE CHAT ERROR ===');
+      console.error('Error creating chat:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      console.error('=== END CREATE CHAT ERROR ===');
+      throw error;
+    }
   }
 
   @Post(':id/messages')

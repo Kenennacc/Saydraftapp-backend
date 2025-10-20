@@ -9,6 +9,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import express from 'express';
 import helmet from 'helmet';
 import {
   initializeTransactionalContext,
@@ -20,6 +21,7 @@ import AuthService from './auth/service';
 async function bootstrap() {
   initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true, // Enable rawBody for webhook signature verification
     cors: {
       origin: ['http://localhost:3000'],
       credentials: true,
@@ -37,6 +39,7 @@ async function bootstrap() {
   app.use(helmet());
   app.use(compression());
   app.use(cookieParser(configService.get('COOKIE_SECRET')));
+  
   app.useGlobalPipes(
     new ValidationPipe({
       stopAtFirstError: true,

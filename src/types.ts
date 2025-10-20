@@ -7,4 +7,5 @@ export type User = {
   timezone: string;
   verifiedAt?: Date;
   isAdmin: boolean;
+  stripeCustomerId?: string;
 };

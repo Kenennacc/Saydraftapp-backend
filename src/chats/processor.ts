@@ -164,7 +164,7 @@ export default class ContractProcessor extends WorkerHost {
       if (parsed) {
         const aiMessage = await this.chatsService.addMessage(
           {
-            text: parsed.response,
+            text: "Here's a contract for you to review. Please take your time to read through it carefully.",
             type: MessageType.TEXT,
             prompts: parsed.texts,
           },

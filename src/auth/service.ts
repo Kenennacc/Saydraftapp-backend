@@ -215,4 +215,12 @@ export default class AuthService extends QueryService {
       { isAdmin: true },
     );
   }
+
+  async getUserById(id: string) {
+    return this.findBy<User>(this.userRepository, 'id', id);
+  }
+
+  async updateUserProfile(userId: string, data: { firstname?: string; lastname?: string }) {
+    return this.userRepository.update({ id: userId }, data);
+  }
 }

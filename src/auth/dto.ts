@@ -198,3 +198,70 @@ export class VerifyDTO {
   })
   token: string;
 }
+
+export class ChangePasswordDTO {
+  @ApiProperty({
+    description: 'Current password',
+    example: 'OldSecureP@ss123',
+  })
+  @IsNotEmpty({ message: 'Current password is required.' })
+  @IsString({ message: 'Current password must be text.' })
+  currentPassword: string;
+
+  @ApiProperty({
+    description: 'New password (min 8 chars, must include uppercase, lowercase, number, and special char)',
+    example: 'NewSecureP@ss123',
+    minLength: 8,
+    maxLength: 128,
+  })
+  @IsNotEmpty({ message: 'New password is required.' })
+  @IsString({ message: 'New password must be text.' })
+  @Length(8, 128, {
+    message:
+      'New password must be between $constraint1 and $constraint2 characters.',
+  })
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,}$/, {
+    message:
+      'New password must include uppercase and lowercase letters, a number, and a special character.',
+  })
+  @Matches(/^\S+$/, { message: 'New password must not contain spaces.' })
+  newPassword: string;
+}
+
+export class UpdateProfileDTO {
+  @ApiProperty({
+    description: 'User first name',
+    example: 'John',
+    minLength: 2,
+    maxLength: 50,
+    required: false,
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'First name must be text.' })
+  @Length(2, 50, {
+    message:
+      'First name must be between $constraint1 and $constraint2 characters.',
+  })
+  @Matches(/^[\p{L}'\-\s]+$/u, {
+    message: 'First name contains invalid characters.',
+  })
+  firstname?: string;
+
+  @ApiProperty({
+    description: 'User last name',
+    example: 'Doe',
+    minLength: 2,
+    maxLength: 50,
+    required: false,
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'Last name must be text.' })
+  @Length(2, 50, {
+    message:
+      'Last name must be between $constraint1 and $constraint2 characters.',
+  })
+  @Matches(/^[\p{L}'\-\s]+$/u, {
+    message: 'Last name contains invalid characters.',
+  })
+  lastname?: string;
+}

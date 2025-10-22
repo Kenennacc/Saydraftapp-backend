@@ -1,14 +1,17 @@
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
+import { randomUUID } from 'crypto';
 import AuthService from 'src/auth/service';
 import { ChatContext } from 'src/entities/Chat';
 import { MessageType } from 'src/entities/Message';
 import PendingInvitation from 'src/entities/PendingInvitation';
 import { ChatState } from 'src/entities/State';
 import AIService from 'src/services/AI';
+import { S3Service } from 'src/services/S3';
 import { IsNull, Repository } from 'typeorm';
 import ChatsService from './service';
+import { File } from 'src/entities';
 
 export enum ContractJobName {
   CREATE_OFFEREE_CHAT = 'create_offeree_chat',
@@ -32,6 +35,7 @@ export default class ContractProcessor extends WorkerHost {
     private chatsService: ChatsService,
     private authService: AuthService,
     private aiService: AIService,
+    private s3Service: S3Service,
     @InjectRepository(PendingInvitation)
     private pendingInvitationRepository: Repository<PendingInvitation>,
   ) {
@@ -116,8 +120,28 @@ export default class ContractProcessor extends WorkerHost {
         ChatContext.OFFEREE,
       );
 
+      // Create and upload contract as DOCX file
+      let contractFile: File|null = null;
+      try {
+        const { buffer, mimetype } = await this.chatsService.createContract(contractText);
+        const fileName = `contract-${randomUUID()}-${Date.now()}.docx`;
+        const contractUrl = await this.s3Service.uploadFile({ buffer, mimetype }, fileName);
+        
+        // Create document record in database
+        contractFile = await this.chatsService.createDocument({
+          url: contractUrl,
+          userId: offeree.id,
+          chatId: offereeChat.id,
+        });
+        
+        console.log(`✅ Contract file uploaded for offeree chat ${offereeChat.id}: ${contractUrl}`);
+      } catch (fileError) {
+        console.error('❌ Error creating/uploading contract file:', fileError);
+        // Continue even if file creation fails
+      }
+
       if (parsed) {
-        await this.chatsService.addMessage(
+        const aiMessage = await this.chatsService.addMessage(
           {
             text: parsed.response,
             type: MessageType.TEXT,
@@ -125,6 +149,17 @@ export default class ContractProcessor extends WorkerHost {
           },
           offereeChat.id,
         );
+
+        // Link the contract file to the AI message if both exist
+        if (contractFile && aiMessage) {
+          try {
+            await this.chatsService.linkFileToMessage(contractFile.id, aiMessage.id);
+            console.log(`✅ Contract file linked to message ${aiMessage.id}`);
+          } catch (linkError) {
+            console.error('❌ Error linking file to message:', linkError);
+            // Continue even if linking fails - file is still in chat
+          }
+        }
 
         await this.chatsService.addChatState(offereeChat.id, ChatState.TEXT);
       }

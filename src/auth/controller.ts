@@ -41,10 +41,12 @@ import { SubscriptionService } from 'src/services/Subscription';
 import type { User as UserType } from 'src/types';
 import { IsolationLevel, Transactional } from 'typeorm-transactional';
 import {
+  ChangePasswordDTO,
   ForgotPasswordDTO,
   LoginDTO,
   RegisterDTO,
   ResetPasswordDTO,
+  UpdateProfileDTO,
   VerifyDTO,
 } from './dto';
 import AuthService from './service';
@@ -326,5 +328,90 @@ export default class AuthController {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { session, verifiedAt, isAdmin, ...others } = user;
     return { isVerified: !!verifiedAt, isAdmin, ...others };
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(Auth)
+  @ApiOperation({ summary: 'Change user password' })
+  @ApiBody({ type: ChangePasswordDTO })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Password changed successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Current password is incorrect',
+  })
+  @Transactional({ isolationLevel: IsolationLevel.SERIALIZABLE })
+  async changePassword(@User() user: UserType, @Body() dto: ChangePasswordDTO) {
+    const userRecord = await this.authService.getUserById(user.id);
+    if (!userRecord) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const isPasswordValid = await this.authService.compareHash(
+      dto.currentPassword,
+      userRecord.password,
+    );
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new ConflictException(
+        'New password must be different from current password',
+      );
+    }
+
+    await this.authService.updateUserPassword(user.id, dto.newPassword);
+
+    // Send email notification
+    const url = `${this.configService.get('CLIENT_URL')}/auth/login`;
+    const template = await this.mailService.buildTemplate(baseTemplate, {
+      ...passwordChangedTemplate,
+      url,
+    });
+    await this.mailQueue.add(JobName.PASSWORD_CHANGED, {
+      to: user.email,
+      subject: passwordChangedTemplate.subject,
+      body: template,
+    } satisfies IMailJobData);
+
+    return { message: 'Password changed successfully' };
+  }
+
+  @Post('update-profile')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(Auth)
+  @ApiOperation({ summary: 'Update user profile' })
+  @ApiBody({ type: UpdateProfileDTO })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Profile updated successfully',
+  })
+  @Transactional({ isolationLevel: IsolationLevel.SERIALIZABLE })
+  async updateProfile(@User() user: UserType, @Body() dto: UpdateProfileDTO) {
+    if (!dto.firstname && !dto.lastname) {
+      throw new ConflictException('At least one field must be provided');
+    }
+
+    await this.authService.updateUserProfile(user.id, {
+      ...(dto.firstname && { firstname: dto.firstname }),
+      ...(dto.lastname && { lastname: dto.lastname }),
+    });
+
+    // Get updated user data
+    const updatedUser = await this.authService.getUserById(user.id);
+
+    return {
+      message: 'Profile updated successfully',
+      user: {
+        firstname: updatedUser!.firstname,
+        lastname: updatedUser!.lastname,
+        email: updatedUser!.email,
+      },
+    };
   }
 }

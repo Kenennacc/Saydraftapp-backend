@@ -407,20 +407,39 @@ export default class ChatsController {
             });
 
             if (offerorFile && offerorFile.chat.context === 'offeror') {
-              const decision = parsed.agreed ? '✅ **accepted**' : '❌ **rejected**';
-              const notificationText = `📬 **Contract Decision from ${user.email}**\n\n${user.firstname} ${user.lastname} has ${decision} the contract.\n\n*Chat updated with their response.*`;
+              if (parsed.agreed) {
+                // Offeree ACCEPTED - prompt offeror to also agree
+                const notificationText = `✅ **${user.firstname} ${user.lastname} has agreed to the terms of the contract!**\n\n${user.email} has accepted the contract. Do you agree to finalize it?`;
 
-              await this.chatsService.addMessage(
-                {
-                  text: notificationText,
-                  type: MessageType.TEXT,
-                  isStatus: true,
-                },
-                offerorFile.chat.id,
-                offerorFile.user.id,
-              );
+                const offerorMessage = await this.chatsService.addMessage(
+                  {
+                    text: notificationText,
+                    type: MessageType.TEXT,
+                    prompts: ['I agree'],
+                  },
+                  offerorFile.chat.id,
+                );
 
-              console.log(`✅ Notified offeror (chat ${offerorFile.chat.id}) about offeree decision: ${parsed.agreed ? 'accepted' : 'rejected'}`);
+                // Change offeror chat state to TEXT so they can respond
+                await this.chatsService.addChatState(offerorFile.chat.id, ChatState.TEXT);
+
+                console.log(`✅ Notified offeror (chat ${offerorFile.chat.id}) - offeree accepted, waiting for offeror's agreement`);
+              } else {
+                // Offeree REJECTED - just notify, no action needed
+                const notificationText = `❌ **Contract Declined**\n\n${user.firstname} ${user.lastname} (${user.email}) has declined the contract terms.`;
+
+                await this.chatsService.addMessage(
+                  {
+                    text: notificationText,
+                    type: MessageType.TEXT,
+                    isStatus: true,
+                  },
+                  offerorFile.chat.id,
+                  offerorFile.user.id,
+                );
+
+                console.log(`✅ Notified offeror (chat ${offerorFile.chat.id}) - offeree rejected`);
+              }
             }
           }
         } catch (notifyError) {

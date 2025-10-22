@@ -25,6 +25,9 @@ export default class User extends BaseEntity {
   @Column({ name: 'banned_at', nullable: true })
   bannedAt?: Date;
 
+  @Column({ name: 'last_login_at', nullable: true })
+  lastLoginAt?: Date;
+
   @Column({ name: 'is_admin', default: false })
   isAdmin: boolean;
 

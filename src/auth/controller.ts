@@ -177,6 +177,9 @@ export default class AuthController {
     )
       throw new UnauthorizedException('Invalid email or password');
 
+    // Update last login timestamp
+    await this.authService.updateLastLogin(user.id);
+
     const session = await this.authService.createSession(
       user.id,
       userAgent,

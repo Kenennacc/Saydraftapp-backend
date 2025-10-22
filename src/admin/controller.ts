@@ -35,6 +35,14 @@ import AdminService from './service';
 export default class AdminController {
   constructor(private adminService: AdminService) {}
 
+  @Get('users/stats')
+  @ApiOperation({ summary: 'Get user statistics' })
+  @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'Not authenticated' })
+  async getStats() {
+    return this.adminService.getStats();
+  }
+
   @Get('users')
   @ApiOperation({ summary: 'Get all users with pagination' })
   @ApiQuery({ name: 'page', required: false, type: Number })

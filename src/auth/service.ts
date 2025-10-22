@@ -223,4 +223,11 @@ export default class AuthService extends QueryService {
   async updateUserProfile(userId: string, data: { firstname?: string; lastname?: string }) {
     return this.userRepository.update({ id: userId }, data);
   }
+
+  async updateLastLogin(userId: string) {
+    return this.userRepository.update(
+      { id: userId },
+      { lastLoginAt: new Date() },
+    );
+  }
 }

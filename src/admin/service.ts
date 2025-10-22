@@ -1,14 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/entities';
+import { Subscription, User } from 'src/entities';
 import { QueryService } from 'src/services';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { CreateUserDTO, UpdateUserDTO } from './dto';
 
 @Injectable()
 export default class AdminService extends QueryService {
   constructor(
     @InjectRepository(User) private userRepository: Repository<User>,
+    @InjectRepository(Subscription)
+    private subscriptionRepository: Repository<Subscription>,
   ) {
     super();
   }
@@ -23,6 +25,7 @@ export default class AdminService extends QueryService {
 
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
+      .leftJoinAndSelect('user.subscriptions', 'subscription')
       .select([
         'user.id',
         'user.email',
@@ -30,10 +33,17 @@ export default class AdminService extends QueryService {
         'user.lastname',
         'user.verifiedAt',
         'user.bannedAt',
+        'user.lastLoginAt',
+        'user.isAdmin',
         'user.createdAt',
         'user.updatedAt',
+        'subscription.id',
+        'subscription.plan',
+        'subscription.status',
+        'subscription.createdAt',
       ])
       .orderBy('user.createdAt', 'DESC')
+      .addOrderBy('subscription.createdAt', 'DESC')
       .skip(skip)
       .take(limit);
 
@@ -46,8 +56,18 @@ export default class AdminService extends QueryService {
 
     const [users, total] = await queryBuilder.getManyAndCount();
 
+    // Transform users to include only the latest subscription, isVerified status, role, and lastLogin
+    const transformedUsers = users.map((user) => ({
+      ...user,
+      isVerified: !!user.verifiedAt,
+      role: user.isAdmin ? 'admin' : 'user',
+      lastLogin: user.lastLoginAt, // Map lastLoginAt to lastLogin for frontend
+      subscription: user.subscriptions?.[0] || null,
+      subscriptions: undefined, // Remove the subscriptions array
+    }));
+
     return {
-      users,
+      users: transformedUsers,
       pagination: {
         page,
         limit,
@@ -58,7 +78,7 @@ export default class AdminService extends QueryService {
   }
 
   async getUser(id: string) {
-    return this.userRepository.findOne({
+    const user = await this.userRepository.findOne({
       where: { id },
       select: [
         'id',
@@ -67,11 +87,29 @@ export default class AdminService extends QueryService {
         'lastname',
         'verifiedAt',
         'bannedAt',
+        'lastLoginAt',
         'isAdmin',
         'createdAt',
         'updatedAt',
       ],
+      relations: ['subscriptions'],
     });
+
+    if (!user) return null;
+
+    // Get the latest subscription
+    const latestSubscription = user.subscriptions?.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    )?.[0];
+
+    return {
+      ...user,
+      isVerified: !!user.verifiedAt,
+      role: user.isAdmin ? 'admin' : 'user',
+      lastLogin: user.lastLoginAt, // Map lastLoginAt to lastLogin for frontend
+      subscription: latestSubscription || null,
+      subscriptions: undefined,
+    };
   }
 
   async createUser(dto: CreateUserDTO) {
@@ -146,6 +184,35 @@ export default class AdminService extends QueryService {
       { isAdmin: false },
     );
     return this.getUser(id);
+  }
+
+  async getStats() {
+    const totalUsers = await this.userRepository.count();
+    
+    const verifiedUsers = await this.userRepository.count({
+      where: {
+        verifiedAt: Not(IsNull()),
+      },
+    });
+    
+    const pendingVerification = await this.userRepository.count({
+      where: {
+        verifiedAt: IsNull(),
+      },
+    });
+    
+    const bannedUsers = await this.userRepository.count({
+      where: {
+        bannedAt: Not(IsNull()),
+      },
+    });
+
+    return {
+      totalUsers,
+      verifiedUsers,
+      pendingVerification,
+      bannedUsers,
+    };
   }
 
   private async hashPassword(password: string): Promise<string> {

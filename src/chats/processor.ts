@@ -11,7 +11,7 @@ import AIService from 'src/services/AI';
 import { S3Service } from 'src/services/S3';
 import { IsNull, Repository } from 'typeorm';
 import ChatsService from './service';
-import { File } from 'src/entities';
+import File, { FileType } from 'src/entities/File';
 
 export enum ContractJobName {
   CREATE_OFFEREE_CHAT = 'create_offeree_chat',
@@ -38,6 +38,8 @@ export default class ContractProcessor extends WorkerHost {
     private s3Service: S3Service,
     @InjectRepository(PendingInvitation)
     private pendingInvitationRepository: Repository<PendingInvitation>,
+    @InjectRepository(File)
+    private fileRepository: Repository<File>,
   ) {
     super();
   }
@@ -120,24 +122,43 @@ export default class ContractProcessor extends WorkerHost {
         ChatContext.OFFEREE,
       );
 
-      // Create and upload contract as DOCX file
+      // Link the existing contract file from the offeror's chat
       let contractFile: File|null = null;
       try {
-        const { buffer, mimetype } = await this.chatsService.createContract(contractText);
-        const fileName = `contract-${randomUUID()}-${Date.now()}.docx`;
-        const contractUrl = await this.s3Service.uploadFile({ buffer, mimetype }, fileName);
-        
-        // Create document record in database
-        contractFile = await this.chatsService.createDocument({
-          url: contractUrl,
-          userId: offeree.id,
-          chatId: offereeChat.id,
+        // Find the contract file from the offeror's chat
+        const offerorFiles = await this.fileRepository.find({
+          where: {
+            chat: {
+              id: offerorChatId,
+            },
+            type: FileType.DOCUMENT,
+          },
+          relations: {
+            chat: true,
+          },
+          order: {
+            createdAt: 'DESC', // Get the most recent contract file
+          },
+          take: 1,
         });
-        
-        console.log(`✅ Contract file uploaded for offeree chat ${offereeChat.id}: ${contractUrl}`);
+
+        const offerorFile = offerorFiles[0];
+
+        if (offerorFile) {
+          // Create a new file record pointing to the same URL for the offeree
+          contractFile = await this.chatsService.createDocument({
+            url: offerorFile.url,
+            userId: offeree.id,
+            chatId: offereeChat.id,
+          });
+          
+          console.log(`✅ Linked offeror's contract file to offeree chat ${offereeChat.id}: ${offerorFile.url}`);
+        } else {
+          console.log(`⚠️ No contract file found in offeror chat ${offerorChatId}, skipping file link`);
+        }
       } catch (fileError) {
-        console.error('❌ Error creating/uploading contract file:', fileError);
-        // Continue even if file creation fails
+        console.error('❌ Error linking contract file:', fileError);
+        // Continue even if file linking fails
       }
 
       if (parsed) {
@@ -162,17 +183,33 @@ export default class ContractProcessor extends WorkerHost {
         }
 
         await this.chatsService.addChatState(offereeChat.id, ChatState.TEXT);
-      }
 
-      await this.chatsService.addMessage(
-        {
-          text: `Contract review invitation sent to ${offereeEmail}. Waiting for their response.`,
-          type: MessageType.TEXT,
-          isStatus: true,
-        },
-        offerorChatId,
-        offerorId,
-      );
+        // Send contract summary to offeror
+        const summaryText = parsed.summary 
+          ? `📧 **Contract Invitation Sent to ${offereeEmail}**\n\n**Contract Summary:**\n${parsed.summary}\n\n*Waiting for their response...*`
+          : `Contract review invitation sent to ${offereeEmail}. Waiting for their response.`;
+
+        await this.chatsService.addMessage(
+          {
+            text: summaryText,
+            type: MessageType.TEXT,
+            isStatus: true,
+          },
+          offerorChatId,
+          offerorId,
+        );
+      } else {
+        // Fallback if AI response parsing fails
+        await this.chatsService.addMessage(
+          {
+            text: `Contract review invitation sent to ${offereeEmail}. Waiting for their response.`,
+            type: MessageType.TEXT,
+            isStatus: true,
+          },
+          offerorChatId,
+          offerorId,
+        );
+      }
 
       console.log(`Created offeree chat ${offereeChat.id} for ${offereeEmail}`);
     } catch (error) {

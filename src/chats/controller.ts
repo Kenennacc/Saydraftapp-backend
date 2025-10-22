@@ -35,6 +35,7 @@ import AuthService from 'src/auth/service';
 import { User } from 'src/decorators';
 import RequiresVerification from 'src/decorators/RequiresVerification';
 import { FileType } from 'src/entities/File';
+import File from 'src/entities/File';
 import Message, { MessageType } from 'src/entities/Message';
 import PendingInvitation from 'src/entities/PendingInvitation';
 import { ChatState } from 'src/entities/State';
@@ -71,6 +72,8 @@ export default class ChatsController {
     private mailService: MailService,
     @InjectRepository(PendingInvitation)
     private pendingInvitationRepository: Repository<PendingInvitation>,
+    @InjectRepository(File)
+    private fileRepository: Repository<File>,
   ) {}
 
   @Get()
@@ -369,6 +372,61 @@ export default class ChatsController {
           chatId: chatId,
         });
         await this.chatsService.linkFileToMessage(document.id, aiResponse.id);
+      }
+
+      // Notify offeror if offeree made a decision (accepted/rejected)
+      if (chat?.context === 'offeree' && parsed?.agreed !== undefined) {
+        try {
+          // Find the contract file in the offeree chat
+          const offereeFile = await this.fileRepository.findOne({
+            where: {
+              chat: { id: chatId },
+              type: FileType.DOCUMENT,
+            },
+            order: {
+              createdAt: 'DESC',
+            },
+          });
+
+          if (offereeFile) {
+            // Find the offeror chat with the same contract file URL
+            const offerorFile = await this.fileRepository.findOne({
+              where: {
+                url: offereeFile.url,
+                type: FileType.DOCUMENT,
+              },
+              relations: {
+                chat: {
+                  user: true,
+                },
+                user: true,
+              },
+              order: {
+                createdAt: 'ASC', // Get the original (offeror's) file
+              },
+            });
+
+            if (offerorFile && offerorFile.chat.context === 'offeror') {
+              const decision = parsed.agreed ? '✅ **accepted**' : '❌ **rejected**';
+              const notificationText = `📬 **Contract Decision from ${user.email}**\n\n${user.firstname} ${user.lastname} has ${decision} the contract.\n\n*Chat updated with their response.*`;
+
+              await this.chatsService.addMessage(
+                {
+                  text: notificationText,
+                  type: MessageType.TEXT,
+                  isStatus: true,
+                },
+                offerorFile.chat.id,
+                offerorFile.user.id,
+              );
+
+              console.log(`✅ Notified offeror (chat ${offerorFile.chat.id}) about offeree decision: ${parsed.agreed ? 'accepted' : 'rejected'}`);
+            }
+          }
+        } catch (notifyError) {
+          console.error('❌ Error notifying offeror:', notifyError);
+          // Don't fail the request if notification fails
+        }
       }
 
       await this.chatsService.addChatState(

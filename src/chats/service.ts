@@ -270,7 +270,9 @@ export default class ChatsService extends QueryService {
       },
       take: 1,
     });
-    return states[0]?.value;
+    const currentState = states[0]?.value;
+    console.log(`🔍 Getting state for chat ${id}: ${currentState || 'NO STATE FOUND'}`);
+    return currentState;
   }
 
   addPrompts(messageId: string, prompts: string[]) {

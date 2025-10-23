@@ -101,8 +101,10 @@ export default class ChatsController {
   @ApiResponse({ status: 404, description: 'Chat not found' })
   @ApiResponse({ status: 401, description: 'Not authenticated' })
   async getChat(@Param('id') id: string) {
+    console.log(`📖 GET /chats/${id} - Fetching chat and state`);
     const chat = await this.chatsService.getChat(id);
     const state = await this.chatsService.getChatState(chat!.id);
+    console.log(`📖 Returning chat ${id} with state: ${state}`);
     return {
       ...chat,
       state,
@@ -536,21 +538,26 @@ export default class ChatsController {
       // For offeree chats, set to NONE after they've made a decision
       if (chat?.context === 'offeree' && parsed?.agreed !== undefined) {
         nextState = ChatState.NONE;
+        console.log(`📌 Setting offeree chat ${chatId} state to NONE (decision made: ${parsed.agreed ? 'accepted' : 'rejected'})`);
       } 
       // For offeror chats, set to NONE after they finalize the contract
       else if (chat?.context === 'offeror' && userText?.toLowerCase().includes('agree')) {
         nextState = ChatState.NONE;
+        console.log(`📌 Setting offeror chat ${chatId} state to NONE (contract finalized)`);
       } 
       // After sending email invitation
       else if (parsed?.email) {
         nextState = ChatState.NONE;
+        console.log(`📌 Setting chat ${chatId} state to NONE (email sent)`);
       } 
       // Default based on AI response
       else {
         nextState = parsed.requires || ChatState.MIC; // Default to MIC if requires is not set
+        console.log(`📌 Setting chat ${chatId} state to ${nextState} (from AI response)`);
       }
       
       await this.chatsService.addChatState(chatId, nextState);
+      console.log(`✅ Chat ${chatId} state updated to ${nextState}`);
     }
   }
 

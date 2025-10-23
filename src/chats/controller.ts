@@ -338,25 +338,32 @@ export default class ChatsController {
     console.log(parsed);
 
     if (parsed) {
-      await this.chatsService.addMessage(
+      // Prepare messages for batch insert (ordered)
+      const messagesToSave = [
+        // 1. Status message
         {
           text: parsed?.status,
           type: MessageType.TEXT,
           isStatus: true,
+          chatId,
+          userId,
         },
-        chatId,
-        userId,
-      );
-      const aiResponse = await this.chatsService.addMessage(
+        // 2. AI response message
         {
           text: parsed?.response
             .replaceAll(/[[\\(]?MIC[\]\\)]?/g, '🎤')
             .replaceAll(/[[\\(]?TEXT[\]\\)]?/g, 'text'),
           type: MessageType.TEXT,
           prompts: parsed?.texts,
+          contractText: parsed?.contract || undefined, // Store contract text directly
+          chatId,
+          userId: undefined,
         },
-        chatId,
-      );
+      ];
+
+      // Save messages in batch (maintains order)
+      const savedMessages = await this.chatsService.addMessagesBatch(messagesToSave);
+      const aiResponse = savedMessages[1]; // AI response is the second message
 
       if (parsed?.contract) {
         const contract = await this.chatsService.createContract(
@@ -575,6 +582,9 @@ export default class ChatsController {
       message.files.some((file) => file.type === FileType.DOCUMENT),
     );
 
+    // Get the actual contract text from the message
+    const contractText = contractMessage?.contractText || contractMessage?.text || '';
+
     const invitedUser = await this.authService.getUserByEmail(dto.email);
 
     const invitationUrl = `${this.configService.get('CLIENT_URL')}`;
@@ -583,14 +593,14 @@ export default class ChatsController {
       await this.contractQueue.add(ContractJobName.CREATE_OFFEREE_CHAT, {
         offerorChatId: chat.id,
         offereeEmail: dto.email,
-        contractText: contractMessage?.text || '',
+        contractText: contractText,
         offerorId: user.id,
       } satisfies ICreateOffereeChat);
     } else {
       const pendingInvitation = this.pendingInvitationRepository.create({
         offereeEmail: dto.email,
         offerorChat: { id: chat.id },
-        contractText: contractMessage?.text || '',
+        contractText: contractText,
         offeror: {
           id: user.id,
         },

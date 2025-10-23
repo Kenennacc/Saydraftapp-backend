@@ -98,12 +98,17 @@ export default class ChatsService extends QueryService {
     return this.chatRepository.update({ id }, { ...filteredObject(payload) });
   }
 
+  updateMessage(id: string, payload: Partial<Message>) {
+    return this.messageRepository.update({ id }, { ...filteredObject(payload) });
+  }
+
   async addMessage(
     dto: {
       text: string;
       type: MessageType;
       isStatus?: boolean;
       prompts?: string[];
+      contractText?: string;
     },
     chatId: string,
     userId?: string,
@@ -112,6 +117,7 @@ export default class ChatsService extends QueryService {
       text: dto.text,
       type: dto.type,
       isStatus: dto.isStatus,
+      contractText: dto.contractText,
       chat: {
         id: chatId,
       },
@@ -124,6 +130,50 @@ export default class ChatsService extends QueryService {
     const message = await this.messageRepository.save(instance);
     if (dto.prompts) await this.addPrompts(message.id, dto.prompts);
     return message;
+  }
+
+  async addMessagesBatch(
+    messages: Array<{
+      text: string;
+      type: MessageType;
+      isStatus?: boolean;
+      prompts?: string[];
+      contractText?: string;
+      chatId: string;
+      userId?: string;
+    }>,
+  ) {
+    // Create all message instances
+    const instances = messages.map((dto) =>
+      this.messageRepository.create({
+        text: dto.text,
+        type: dto.type,
+        isStatus: dto.isStatus,
+        contractText: dto.contractText,
+        chat: {
+          id: dto.chatId,
+        },
+        user: dto.userId
+          ? {
+              id: dto.userId,
+            }
+          : undefined,
+      }),
+    );
+
+    // Save all messages in batch (maintains order)
+    const savedMessages = await this.messageRepository.save(instances);
+
+    // Add prompts for messages that have them
+    for (let i = 0; i < savedMessages.length; i++) {
+      const message = savedMessages[i];
+      const dto = messages[i];
+      if (dto.prompts && dto.prompts.length > 0) {
+        await this.addPrompts(message.id, dto.prompts);
+      }
+    }
+
+    return savedMessages;
   }
 
   getMessages(filters?: QueryFilters<Message>) {

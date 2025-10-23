@@ -108,13 +108,20 @@ export default class ContractProcessor extends WorkerHost {
     try {
       const offeree = await this.authService.getUserByEmail(offereeEmail);
       if (!offeree) return;
+      console.log('=== OFFEREE CHAT CREATION DEBUG ===');
+      console.log('Contract text length:', contractText.length);
+      console.log('Contract text preview:', contractText.substring(0, 200) + '...');
+      
       const response = await this.aiService.chat(ChatContext.OFFEREE, [
         {
           role: 'user',
           content: `[CONTRACT]\n${contractText}`,
         },
       ]);
+      
+      console.log('AI Response:', response);
       const parsed = response?.output_parsed;
+      console.log('Parsed response:', parsed);
 
       const offereeChat = await this.chatsService.createChat(
         'Contract Review',
@@ -161,12 +168,13 @@ export default class ContractProcessor extends WorkerHost {
         // Continue even if file linking fails
       }
 
-      if (parsed) {
+      if (parsed && parsed.response) {
+        console.log('Creating AI message with response:', parsed.response);
         const aiMessage = await this.chatsService.addMessage(
           {
-            text: "Here's a contract for you to review. Please take your time to read through it carefully.",
+            text: parsed.response,
             type: MessageType.TEXT,
-            prompts: parsed.texts,
+            prompts: parsed.texts || ["Yes", "No"],
           },
           offereeChat.id,
         );
@@ -199,7 +207,20 @@ export default class ContractProcessor extends WorkerHost {
           offerorId,
         );
       } else {
-        // Fallback if AI response parsing fails
+        console.error('❌ AI response failed or was invalid:', { parsed, response });
+        // Fallback: Create a basic message for offeree
+        await this.chatsService.addMessage(
+          {
+            text: "Here's a contract for you to review. Please take your time to read through it carefully.",
+            type: MessageType.TEXT,
+            prompts: ["Yes", "No"],
+          },
+          offereeChat.id,
+        );
+        
+        await this.chatsService.addChatState(offereeChat.id, ChatState.TEXT);
+        
+        // Send notification to offeror
         await this.chatsService.addMessage(
           {
             text: `Contract review invitation sent to ${offereeEmail}. Waiting for their response.`,

@@ -27,6 +27,9 @@ export default class Message extends BaseEntity {
   @Column({ name: 'is_status', default: false })
   isStatus: boolean;
 
+  @Column({ name: 'contract_text', type: 'text', nullable: true })
+  contractText?: string;
+
   @OneToMany(() => File, (file) => file.message)
   files: File[];
 

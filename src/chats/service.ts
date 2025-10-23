@@ -259,17 +259,18 @@ export default class ChatsService extends QueryService {
   }
 
   async getChatState(id: string) {
-    const state = await this.chatStateRepository.findOne({
+    const states = await this.chatStateRepository.find({
       order: {
-        createdAt: 'desc',
+        createdAt: 'DESC',
       },
       where: {
         chat: {
           id,
         },
       },
+      take: 1,
     });
-    return state?.value;
+    return states[0]?.value;
   }
 
   addPrompts(messageId: string, prompts: string[]) {

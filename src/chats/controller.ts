@@ -234,8 +234,8 @@ export default class ChatsController {
     let userText: string;
 
     if (file) {
-      if (state !== ChatState.MIC && state !== ChatState.EMAIL) {
-        throw new ForbiddenException('This response requires text input');
+      if (state !== ChatState.MIC) {
+        throw new ForbiddenException('This response requires text input. Current state: ' + state);
       }
 
       const url = await this.s3Service.uploadFile(
@@ -381,11 +381,11 @@ export default class ChatsController {
         await this.chatsService.linkFileToMessage(document.id, aiResponse.id);
       }
 
-      // Notify offeror if offeree made a decision (accepted/rejected)
-      if (chat?.context === 'offeree' && parsed?.agreed !== undefined) {
+      // Handle offeror final agreement (after offeree accepted)
+      if (chat?.context === 'offeror' && userText?.toLowerCase().includes('agree')) {
         try {
-          // Find the contract file in the offeree chat
-          const offereeFile = await this.fileRepository.findOne({
+          // Find the contract file in the offeror chat
+          const offerorFiles = await this.fileRepository.find({
             where: {
               chat: { id: chatId },
               type: FileType.DOCUMENT,
@@ -393,11 +393,77 @@ export default class ChatsController {
             order: {
               createdAt: 'DESC',
             },
+            take: 1,
           });
 
+          const offerorFile = offerorFiles[0];
+
+          if (offerorFile) {
+            // Find the offeree chat with the same contract file URL
+            const offereeFiles = await this.fileRepository.find({
+              where: {
+                url: offerorFile.url,
+                type: FileType.DOCUMENT,
+              },
+              relations: {
+                chat: {
+                  user: true,
+                },
+                user: true,
+              },
+              order: {
+                createdAt: 'DESC', // Get the offeree's file (created later)
+              },
+              take: 1,
+            });
+
+            const offereeFile = offereeFiles[0];
+
+            if (offereeFile && offereeFile.chat.context === 'offeree' && offereeFile.chat.id !== chatId) {
+              // Notify offeree that contract is finalized
+              const finalizationText = `🎉 **Contract Finalized!**\n\n${user.firstname} ${user.lastname} (${user.email}) has also agreed to the contract. The contract is now finalized and binding for both parties.`;
+
+              await this.chatsService.addMessage(
+                {
+                  text: finalizationText,
+                  type: MessageType.TEXT,
+                  isStatus: true,
+                },
+                offereeFile.chat.id,
+              );
+
+              // Set offeree chat state to NONE (already finalized)
+              await this.chatsService.addChatState(offereeFile.chat.id, ChatState.NONE);
+
+              console.log(`✅ Contract finalized - notified offeree (chat ${offereeFile.chat.id})`);
+            }
+          }
+        } catch (finalizeError) {
+          console.error('❌ Error finalizing contract:', finalizeError);
+          // Don't fail the request if notification fails
+        }
+      }
+
+      // Notify offeror if offeree made a decision (accepted/rejected)
+      if (chat?.context === 'offeree' && parsed?.agreed !== undefined) {
+        try {
+          // Find the contract file in the offeree chat (use find for reliable ordering)
+          const offereeFiles = await this.fileRepository.find({
+            where: {
+              chat: { id: chatId },
+              type: FileType.DOCUMENT,
+            },
+            order: {
+              createdAt: 'DESC',
+            },
+            take: 1,
+          });
+
+          const offereeFile = offereeFiles[0];
+
           if (offereeFile) {
-            // Find the offeror chat with the same contract file URL
-            const offerorFile = await this.fileRepository.findOne({
+            // Find the offeror chat with the same contract file URL (use find for reliable ordering)
+            const offerorFiles = await this.fileRepository.find({
               where: {
                 url: offereeFile.url,
                 type: FileType.DOCUMENT,
@@ -411,14 +477,17 @@ export default class ChatsController {
               order: {
                 createdAt: 'ASC', // Get the original (offeror's) file
               },
+              take: 1,
             });
+
+            const offerorFile = offerorFiles[0];
 
             if (offerorFile && offerorFile.chat.context === 'offeror') {
               if (parsed.agreed) {
                 // Offeree ACCEPTED - prompt offeror to also agree
                 const notificationText = `✅ **${user.firstname} ${user.lastname} has agreed to the terms of the contract!**\n\n${user.email} has accepted the contract. Do you agree to finalize it?`;
 
-                const offerorMessage = await this.chatsService.addMessage(
+                await this.chatsService.addMessage(
                   {
                     text: notificationText,
                     type: MessageType.TEXT,
@@ -442,12 +511,18 @@ export default class ChatsController {
                     isStatus: true,
                   },
                   offerorFile.chat.id,
-                  offerorFile.user.id,
                 );
+
+                // Set offeror chat state to NONE since contract is declined
+                await this.chatsService.addChatState(offerorFile.chat.id, ChatState.NONE);
 
                 console.log(`✅ Notified offeror (chat ${offerorFile.chat.id}) - offeree rejected`);
               }
+            } else {
+              console.error('❌ Offeror file not found or invalid context');
             }
+          } else {
+            console.error('❌ Offeree file not found');
           }
         } catch (notifyError) {
           console.error('❌ Error notifying offeror:', notifyError);
@@ -455,10 +530,27 @@ export default class ChatsController {
         }
       }
 
-      await this.chatsService.addChatState(
-        chatId,
-        parsed?.email ? ChatState.NONE : parsed.requires,
-      );
+      // Set the next chat state based on AI response
+      let nextState: ChatState;
+      
+      // For offeree chats, set to NONE after they've made a decision
+      if (chat?.context === 'offeree' && parsed?.agreed !== undefined) {
+        nextState = ChatState.NONE;
+      } 
+      // For offeror chats, set to NONE after they finalize the contract
+      else if (chat?.context === 'offeror' && userText?.toLowerCase().includes('agree')) {
+        nextState = ChatState.NONE;
+      } 
+      // After sending email invitation
+      else if (parsed?.email) {
+        nextState = ChatState.NONE;
+      } 
+      // Default based on AI response
+      else {
+        nextState = parsed.requires || ChatState.MIC; // Default to MIC if requires is not set
+      }
+      
+      await this.chatsService.addChatState(chatId, nextState);
     }
   }
 
